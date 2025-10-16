@@ -1,0 +1,141 @@
+#:import dp kivy.metrics.dp
+
+<Page1>:
+    orientation: 'vertical'
+    padding: dp(8)
+    spacing: dp(8)
+
+    # Background handled in Python
+    # Header handled in Python
+
+    BoxLayout:
+        id: controls_box
+        orientation: 'vertical'
+        spacing: dp(8)
+        padding: dp(12)
+        # Background handled in Python
+
+        # Registration
+        BoxLayout:
+            size_hint_y: None
+            height: dp(50)
+            spacing: dp(6)
+            SafeTextInput:
+                id: reg_name
+                hint_text: "Name"
+                multiline: False
+                size_hint_x: 0.4
+            SafeTextInput:
+                id: reg_mobile
+                hint_text: "Mobile"
+                multiline: False
+                size_hint_x: 0.4
+            Button:
+                text: "Register"
+                size_hint_x: 0.2
+                on_press: root.register_client(self)
+
+        # Search
+        BoxLayout:
+            size_hint_y: None
+            height: dp(50)
+            spacing: dp(6)
+            SafeTextInput:
+                id: search_input
+                hint_text: "Search by Name or Mobile"
+                multiline: False
+                size_hint_x: 0.8
+            Button:
+                text: "Search"
+                size_hint_x: 0.2
+                on_press: root.search_client(self)
+
+        # Download / Show List
+        Button:
+            text: "Download Clients List"
+            size_hint_y: None
+            height: dp(50)
+            background_color: 0.2, 0.6, 0.2, 1
+            color: 1, 1, 1, 1
+            on_press: root.download_clients_pdf(self)
+
+        Button:
+            text: "Show Clients List"
+            size_hint_y: None
+            height: dp(50)
+            background_color: 0.2, 0.4, 0.6, 1
+            color: 1, 1, 1, 1
+            on_press: root.toggle_client_list(self)
+
+    ScrollView:
+        size_hint: (1, 1)
+        GridLayout:
+            id: client_table
+            cols: 2
+            size_hint_y: None
+            height: self.minimum_height
+            row_default_height: dp(40)
+            row_force_default: True
+
+<Page2>:
+    orientation: 'vertical'
+    padding: dp(5)
+    spacing: dp(5)
+
+    Label:
+        id: client_heading
+        text: ""
+        size_hint_y: None
+        height: dp(40)
+        bold: True
+        color: 0.1,0.1,0.1,1
+
+    GridLayout:
+        id: entry_inputs
+        cols: 4
+        spacing: dp(5)
+        size_hint_y: None
+        height: dp(40)
+        SafeTextInput:
+            id: date_input
+            hint_text: "Date"
+            multiline: False
+        SafeTextInput:
+            id: detail_input
+            hint_text: "Detail"
+            multiline: False
+        SafeTextInput:
+            id: amount_hour_input
+            hint_text: "Amount/hour"
+            multiline: False
+        SafeTextInput:
+            id: amount_deposit_input
+            hint_text: "Amount deposited"
+            multiline: False
+
+    Button:
+        text: "Add Entry"
+        size_hint_y: None
+        height: dp(40)
+        on_press: root.add_entry(self)
+
+    ScrollView:
+        size_hint: (1, 1)
+        GridLayout:
+            id: table_layout
+            cols: 6
+            size_hint_y: None
+            height: self.minimum_height
+            row_default_height: dp(30)
+            row_force_default: True
+
+    BoxLayout:
+        size_hint_y: None
+        height: dp(50)
+        spacing: dp(5)
+        Button:
+            text: "Back to Page1"
+            on_press: root.main_app.show_page1()
+        Button:
+            text: "Download PDF"
+            on_press: root.download_pdf(self)

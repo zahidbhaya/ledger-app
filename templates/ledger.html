@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Ledger - {{ client.get("name", "Unknown") }}</title>
+    <style>
+        body {
+            background: #e6d0f0;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+
+        h1 {
+            color: #4b0082;
+        }
+
+        h2 {
+            color: goldenrod;
+        }
+
+        table {
+            margin: auto;
+            border-collapse: collapse;
+            width: 80%;
+            background: #ffffffcc;
+        }
+
+        th,
+        td {
+            border: 1px solid #bbb;
+            padding: 8px;
+            text-align: center;
+        }
+
+        input {
+            padding: 5px;
+            margin: 5px;
+            border-radius: 6px;
+        }
+
+        button {
+            background: #4b0082;
+            color: white;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #360060;
+        }
+
+        a {
+            text-decoration: none;
+            color: darkblue;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>📒 Client Ledger</h1>
+    <h2>{{ client.get("name", "Unknown") }} ({{ client_id }})</h2>
+
+    <!-- Add Entry Form -->
+    <form method="POST" action="/add_entry/{{ client_id }}">
+        <input type="text" name="date" placeholder="Date (e.g. 15-Oct-2025)" required>
+        <input type="text" name="detail" placeholder="Detail" required>
+        <input type="number" step="0.01" name="amount_hour" placeholder="Amount/hour" required>
+        <input type="number" step="0.01" name="amount_deposit" placeholder="Amount deposited" required>
+        <button type="submit">Add Entry</button>
+    </form>
+
+    <hr>
+
+    <table>
+        <tr>
+            <th>Sr</th>
+            <th>Date</th>
+            <th>Detail</th>
+            <th>Amount/hour</th>
+            <th>Amount deposited</th>
+            <th>Pending</th>
+        </tr>
+
+        {% if client.get("ledger") %}
+        {% for row in client.get("ledger") %}
+        <tr>
+            <td><a href="#" onclick="deleteEntry('{{ client_id }}', {{ row['sr'] }})">{{ row['sr'] }}</a></td>
+            <td>{{ row["date"] }}</td>
+            <td>{{ row["detail"] }}</td>
+            <td>{{ "%.2f"|format(row["amount_hour"]) }}</td>
+            <td>{{ "%.2f"|format(row["amount_deposit"]) }}</td>
+            <td>
+                {% if row.pending >= 0 %}
+                -{{ "%.2f"|format(row.pending) }}
+                {% else %}
+                +{{ "%.2f"|format(-row.pending) }}
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+
+        <!-- Total Row -->
+        <tr style="font-weight:bold;">
+            <td colspan="3">Total</td>
+            <td>{{ "%.2f"|format(client.total_hour) }}</td>
+            <td>{{ "%.2f"|format(client.total_deposit) }}</td>
+            <td>
+                {% if client.total_pending >= 0 %}
+                -{{ "%.2f"|format(client.total_pending) }}
+                {% else %}
+                +{{ "%.2f"|format(-client.total_pending) }}
+                {% endif %}
+            </td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="6">No ledger entries yet.</td>
+        </tr>
+        {% endif %}
+    </table>
+
+    <br>
+    <button onclick="window.location='/download_ledger_pdf/{{ client_id }}'">⬇ Download Ledger PDF</button>
+    <br><br>
+    <a href="/">⬅ Back to Clients</a>
+
+    <script>
+        function deleteEntry(clientId, sr) {
+            var password = prompt("Enter password to delete entry:");
+            if (password === "ZAB") {
+                fetch(`/delete_entry/${clientId}/${sr}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: `password=${password}`
+                }).then(() => window.location.reload());
+            } else {
+                alert("Incorrect password!");
+            }
+        }
+    </script>
+</body>
+
+</html>

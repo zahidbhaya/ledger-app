@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Ledger System</title>
+    <style>
+        body {
+            background: #e6d0f0;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+
+        h1 {
+            color: #4b0082;
+        }
+
+        h2 {
+            color: goldenrod;
+        }
+
+        table {
+            margin: auto;
+            border-collapse: collapse;
+            width: 80%;
+            background: #ffffffcc;
+        }
+
+        th,
+        td {
+            border: 1px solid #bbb;
+            padding: 8px;
+            text-align: center;
+        }
+
+        input {
+            padding: 5px;
+            margin: 5px;
+            border-radius: 6px;
+        }
+
+        button {
+            background: #4b0082;
+            color: white;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #360060;
+        }
+
+        a {
+            text-decoration: none;
+            color: darkblue;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>📒 Client Ledger System</h1>
+
+    <!-- Registration Form -->
+    <form method="POST" action="/register">
+        <input type="text" name="name" placeholder="Client Name" required>
+        <input type="text" name="mobile" placeholder="Unique ID (letters or numbers)" required>
+        <button type="submit">Register Client</button>
+    </form>
+
+    <hr>
+
+    <!-- Search & Show All -->
+    <form method="GET" action="/">
+        <input type="text" name="search" placeholder="Search by Name or ID" value="{{ search_query }}">
+        <button type="submit">Search</button>
+        <button type="submit" name="show_clients" value="1">Show All Clients</button>
+    </form>
+
+    <br>
+    <a href="/download_clients_pdf"><button>📄 Download All Clients PDF</button></a>
+
+    <!-- Clients Table -->
+    {% if show_clients and clients %}
+    <h2>Registered Clients</h2>
+    <table>
+        <tr>
+            <th>Name</th>
+            <th>Mobile/ID</th>
+            <th>Action</th>
+        </tr>
+        {% for client in clients %}
+        <tr>
+            <td>{{ client.name }}</td>
+            <td>{{ client.id }}</td>
+            <td><a href="/ledger/{{ client.id }}">📂 Open Ledger</a></td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% elif show_clients %}
+    <h3>No clients found.</h3>
+    {% endif %}
+
+</body>
+
+</html>

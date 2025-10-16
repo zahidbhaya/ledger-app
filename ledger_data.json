@@ -1,0 +1,104 @@
+{
+    "5": {
+        "name": "f",
+        "ledger": [
+            {
+                "sr": 1,
+                "date": "07-03-2024",
+                "detail": "uyh",
+                "amount_hour": 1000.0,
+                "amount_deposit": 690.0,
+                "pending": 310.0
+            }
+        ],
+        "total_hour": 0.0,
+        "total_deposit": 0.0,
+        "total_pending": 0.0
+    },
+    "bhh": {
+        "name": "ffgggg",
+        "ledger": [
+            {
+                "sr": 1,
+                "date": "lekkekgggrrr",
+                "detail": "fgggsss",
+                "amount_hour": 1000.0,
+                "amount_deposit": 500.0,
+                "pending": 500.0
+            },
+            {
+                "sr": 2,
+                "date": "lekkekgggrrr",
+                "detail": "d",
+                "amount_hour": 1000.0,
+                "amount_deposit": 25656.0,
+                "pending": -24656.0
+            }
+        ],
+        "total_hour": 2000.0,
+        "total_deposit": 26156.0,
+        "total_pending": -24156.0
+    },
+    "av": {
+        "name": "a",
+        "ledger": [
+            {
+                "sr": 1,
+                "date": "0102022",
+                "detail": "d",
+                "amount_hour": 1000.0,
+                "amount_deposit": 200.0,
+                "pending": 800.0
+            }
+        ]
+    },
+    "g": {
+        "name": "e",
+        "ledger": [
+            {
+                "sr": 1,
+                "date": "0102022",
+                "detail": "fgggsss",
+                "amount_hour": 1000.0,
+                "amount_deposit": 357.0,
+                "pending": 643.0
+            },
+            {
+                "sr": 2,
+                "date": "lekkekgggrrr",
+                "detail": "fgggsss",
+                "amount_hour": 1000.0,
+                "amount_deposit": 3215.0,
+                "pending": -2215.0
+            }
+        ],
+        "total_hour": 2000.0,
+        "total_deposit": 3572.0,
+        "total_pending": -1572.0
+    },
+    "ds": {
+        "name": "a",
+        "ledger": [
+            {
+                "sr": 1,
+                "date": "0102022",
+                "detail": "d",
+                "amount_hour": 1000.0,
+                "amount_deposit": 200.0,
+                "pending": 800.0
+            },
+            {
+                "sr": 2,
+                "date": "0102022",
+                "detail": "fgggsss",
+                "amount_hour": 1000.0,
+                "amount_deposit": 500.0,
+                "pending": 500.0
+            }
+        ]
+    },
+    "weerrr": {
+        "name": "dsfgg",
+        "ledger": []
+    }
+}
