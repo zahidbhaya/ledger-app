@@ -1,144 +1,164 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en" data-theme="violet">
+
 
 <head>
-    <title>Ledger - {{ client.get("name", "Unknown") }}</title>
-    <style>
-        body {
-            background: #e6d0f0;
-            font-family: Arial, sans-serif;
-            text-align: center;
-        }
-
-        h1 {
-            color: #4b0082;
-        }
-
-        h2 {
-            color: goldenrod;
-        }
-
-        table {
-            margin: auto;
-            border-collapse: collapse;
-            width: 80%;
-            background: #ffffffcc;
-        }
-
-        th,
-        td {
-            border: 1px solid #bbb;
-            padding: 8px;
-            text-align: center;
-        }
-
-        input {
-            padding: 5px;
-            margin: 5px;
-            border-radius: 6px;
-        }
-
-        button {
-            background: #4b0082;
-            color: white;
-            padding: 8px 12px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-        }
-
-        button:hover {
-            background: #360060;
-        }
-
-        a {
-            text-decoration: none;
-            color: darkblue;
-        }
-    </style>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ledger — {{ client.name }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
+<script src="{{ url_for('static', filename='ui.js') }}" defer></script>
 
 <body>
-    <h1>📒 Client Ledger</h1>
-    <h2>{{ client.get("name", "Unknown") }} ({{ client_id }})</h2>
-
-    <!-- Add Entry Form -->
-    <form method="POST" action="/add_entry/{{ client_id }}">
-        <input type="text" name="date" placeholder="Date (e.g. 15-Oct-2025)" required>
-        <input type="text" name="detail" placeholder="Detail" required>
-        <input type="number" step="0.01" name="amount_hour" placeholder="Amount/hour" required>
-        <input type="number" step="0.01" name="amount_deposit" placeholder="Amount deposited" required>
-        <button type="submit">Add Entry</button>
-    </form>
-
-    <hr>
-
-    <table>
-        <tr>
-            <th>Sr</th>
-            <th>Date</th>
-            <th>Detail</th>
-            <th>Amount/hour</th>
-            <th>Amount deposited</th>
-            <th>Pending</th>
-        </tr>
-
-        {% if client.get("ledger") %}
-        {% for row in client.get("ledger") %}
-        <tr>
-            <td><a href="#" onclick="deleteEntry('{{ client_id }}', {{ row['sr'] }})">{{ row['sr'] }}</a></td>
-            <td>{{ row["date"] }}</td>
-            <td>{{ row["detail"] }}</td>
-            <td>{{ "%.2f"|format(row["amount_hour"]) }}</td>
-            <td>{{ "%.2f"|format(row["amount_deposit"]) }}</td>
-            <td>
-                {% if row.pending >= 0 %}
-                -{{ "%.2f"|format(row.pending) }}
-                {% else %}
-                +{{ "%.2f"|format(-row.pending) }}
-                {% endif %}
-            </td>
-        </tr>
+    <main class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="flash"
+            data-theme="{{ 'danger' if category=='error' else ('success' if category=='success' else 'dark') }}">{{
+            message }}</div>
         {% endfor %}
-
-        <!-- Total Row -->
-        <tr style="font-weight:bold;">
-            <td colspan="3">Total</td>
-            <td>{{ "%.2f"|format(client.total_hour) }}</td>
-            <td>{{ "%.2f"|format(client.total_deposit) }}</td>
-            <td>
-                {% if client.total_pending >= 0 %}
-                -{{ "%.2f"|format(client.total_pending) }}
-                {% else %}
-                +{{ "%.2f"|format(-client.total_pending) }}
-                {% endif %}
-            </td>
-        </tr>
-        {% else %}
-        <tr>
-            <td colspan="6">No ledger entries yet.</td>
-        </tr>
         {% endif %}
-    </table>
+        {% endwith %}
 
-    <br>
-    <button onclick="window.location='/download_ledger_pdf/{{ client_id }}'">⬇ Download Ledger PDF</button>
-    <br><br>
-    <a href="/">⬅ Back to Clients</a>
+        <!-- Heading above content -->
+        <header class="stack-md center">
+            <h2>Ledger — {{ client.name }} ({{ client.mobile }})</h2>
+        </header>
+
+        <!-- Add Entry centered, single line -->
+        <section class="stack-sm add-card">
+            <form class="row-form" method="post"
+                action="{% if edit_entry %}/ledger/{{ client.id }}/entry/{{ edit_entry.id }}/edit{% else %}/ledger/{{ client.id }}/add{% endif %}">
+                <div class="field short">
+                    <label>Date <input type="date" name="date"
+                            value="{{ edit_entry.date if edit_entry else '' }}"></label>
+                </div>
+                <div class="field" style="min-width:230px">
+                    <label>Details <input type="text" name="details"
+                            value="{{ edit_entry.details if edit_entry else '' }}" required
+                            placeholder="Work detail"></label>
+                </div>
+                <div class="field short">
+                    <label>Amount/hour <input type="number" name="amount_per_hour" step="0.01" min="0"
+                            value="{{ edit_entry.amount_per_hour if edit_entry else 0 }}"></label>
+                </div>
+                <div class="field short">
+                    <label>Deposit <input type="number" name="deposit" step="0.01" min="0"
+                            value="{{ edit_entry.deposit if edit_entry else 0 }}"></label>
+                </div>
+                {% if edit_entry %}
+                <div class="field short">
+                    <label>Password <input type="password" name="current_password" required
+                            placeholder="Login password"></label>
+                </div>
+                {% endif %}
+                <div class="field short">
+                    <button type="submit">{% if edit_entry %}Update{% else %}Add{% endif %}</button>
+                </div>
+                {% if edit_entry %}
+                <div class="field short"><a href="/ledger/{{ client.id }}" role="button" class="secondary">Cancel</a>
+                </div>
+                {% endif %}
+            </form>
+        </section>
+
+        <!-- Table compact, full width, no horizontal scroll -->
+        <section class="stack-md table-card">
+            <h4>Entries</h4>
+            {% if entries %}
+            <table id="ledger-table">
+                <thead>
+                    <tr>
+                        <th style="width:70px">S#</th>
+                        <th style="width:120px">Date</th>
+                        <th>Details</th>
+                        <th style="width:140px">Amount/hour</th>
+                        <th style="width:140px">Deposit</th>
+                        <th style="width:120px">Pending</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for e in entries %}
+                    <tr data-entry-id="{{ e.id }}" data-client-id="{{ client.id }}">
+                        <td class="serial"><a href="javascript:void(0)">{{ loop.index }}</a></td>
+                        <td>{{ e.date or '' }}</td>
+                        <td title="{{ e.details }}">{{ e.details }}</td>
+                        <td>{{ '%.2f'|format(e.amount_per_hour or 0) }}</td>
+                        <td>{{ '%.2f'|format(e.deposit or 0) }}</td>
+                        <td>{{ '%.2f'|format((e.deposit or 0) - (e.amount_per_hour or 0)) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="3">TOTAL</td>
+                        <td>{{ '%.2f'|format(totals.amount_per_hour) }}</td>
+                        <td>{{ '%.2f'|format(totals.deposit) }}</td>
+                        <td>{{ '%.2f'|format(totals.pending) }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+
+            <div class="block-actions center">
+                <a href="/ledger/{{ client.id }}/pdf" role="button" class="secondary">Download Ledger PDF</a>
+                <a href="/clients" role="button">Back to client list</a>
+            </div>
+            {% else %}
+            <p>No entries yet. Add your first one above.</p>
+            {% endif %}
+        </section>
+    </main>
+
+    <!-- Floating popover template -->
+    <div id="entry-pop" class="popover" aria-hidden="true">
+        <div class="title">Actions</div>
+        <div class="row">
+            <a id="pop-edit" role="button">Edit</a>
+        </div>
+        <form id="pop-del" class="row" method="post">
+            <input type="password" name="current_password" placeholder="Password" required>
+            <input type="submit" class="contrast" value="Delete">
+        </form>
+    </div>
 
     <script>
-        function deleteEntry(clientId, sr) {
-            var password = prompt("Enter password to delete entry:");
-            if (password === "ZAB") {
-                fetch(`/delete_entry/${clientId}/${sr}`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                    body: `password=${password}`
-                }).then(() => window.location.reload());
-            } else {
-                alert("Incorrect password!");
-            }
-        }
+        // Floating popover for Edit/Delete without overlapping table
+        const pop = document.getElementById('entry-pop');
+        const aEdit = document.getElementById('pop-edit');
+        const fDel = document.getElementById('pop-del');
+
+        // open popover near S#
+        document.querySelectorAll('#ledger-table .serial a').forEach(a => {
+            a.addEventListener('click', e => {
+                const td = e.target.closest('td');
+                const tr = td.closest('tr');
+                const entryId = tr.dataset.entryId;
+                const clientId = tr.dataset.clientId;
+
+                aEdit.href = `/ledger/${clientId}/entry/${entryId}/edit`;
+                fDel.action = `/ledger/${clientId}/entry/${entryId}/delete`;
+
+                // position
+                const rect = e.target.getBoundingClientRect();
+                const top = rect.bottom + 6 + window.scrollY;
+                const left = Math.min(window.scrollX + rect.left, window.scrollX + window.innerWidth - pop.offsetWidth - 10);
+
+                pop.style.top = top + 'px';
+                pop.style.left = left + 'px';
+                pop.style.display = 'block';
+                pop.setAttribute('aria-hidden', 'false');
+
+                e.stopPropagation();
+            });
+        });
+
+        // close on outside click/scroll/resize
+        const closePop = () => { pop.style.display = 'none'; pop.setAttribute('aria-hidden', 'true'); };
+        document.addEventListener('click', e => { if (!e.target.closest('#entry-pop')) closePop(); });
+        window.addEventListener('scroll', closePop, { passive: true });
+        window.addEventListener('resize', closePop);
     </script>
 </body>
 

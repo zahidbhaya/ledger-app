@@ -1,106 +1,176 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en" data-theme="violet">
+
 
 <head>
-    <title>Ledger System</title>
-    <style>
-        body {
-            background: #e6d0f0;
-            font-family: Arial, sans-serif;
-            text-align: center;
-        }
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ledger App</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;700&display=swap" rel="stylesheet">
 
-        h1 {
-            color: #4b0082;
-        }
-
-        h2 {
-            color: goldenrod;
-        }
-
-        table {
-            margin: auto;
-            border-collapse: collapse;
-            width: 80%;
-            background: #ffffffcc;
-        }
-
-        th,
-        td {
-            border: 1px solid #bbb;
-            padding: 8px;
-            text-align: center;
-        }
-
-        input {
-            padding: 5px;
-            margin: 5px;
-            border-radius: 6px;
-        }
-
-        button {
-            background: #4b0082;
-            color: white;
-            padding: 8px 12px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-        }
-
-        button:hover {
-            background: #360060;
-        }
-
-        a {
-            text-decoration: none;
-            color: darkblue;
-        }
-    </style>
 </head>
+<script src="{{ url_for('static', filename='ui.js') }}" defer></script>
 
 <body>
-    <h1>📒 Client Ledger System</h1>
+    <button id="theme-toggle" class="theme-btn">🎨Theme</button>
 
-    <!-- Registration Form -->
-    <form method="POST" action="/register">
-        <input type="text" name="name" placeholder="Client Name" required>
-        <input type="text" name="mobile" placeholder="Unique ID (letters or numbers)" required>
-        <button type="submit">Register Client</button>
-    </form>
-
-    <hr>
-
-    <!-- Search & Show All -->
-    <form method="GET" action="/">
-        <input type="text" name="search" placeholder="Search by Name or ID" value="{{ search_query }}">
-        <button type="submit">Search</button>
-        <button type="submit" name="show_clients" value="1">Show All Clients</button>
-    </form>
-
-    <br>
-    <a href="/download_clients_pdf"><button>📄 Download All Clients PDF</button></a>
-
-    <!-- Clients Table -->
-    {% if show_clients and clients %}
-    <h2>Registered Clients</h2>
-    <table>
-        <tr>
-            <th>Name</th>
-            <th>Mobile/ID</th>
-            <th>Action</th>
-        </tr>
-        {% for client in clients %}
-        <tr>
-            <td>{{ client.name }}</td>
-            <td>{{ client.id }}</td>
-            <td><a href="/ledger/{{ client.id }}">📂 Open Ledger</a></td>
-        </tr>
+    <main class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="flash"
+            data-theme="{{ 'danger' if category=='error' else ('success' if category=='success' else 'dark') }}">{{
+            message }}</div>
         {% endfor %}
-    </table>
-    {% elif show_clients %}
-    <h3>No clients found.</h3>
-    {% endif %}
+        {% endif %}
+        {% endwith %}
 
+        {% if view == 'auth' %}
+        <!-- PAGE 1: Login & Signup side-by-side, centered -->
+        <!-- WELCOME TITLE -->
+        <div class="welcome-banner">
+            <h1>Welcome to <span>Ledger System</span></h1>
+            <p>by <strong>Z.A.Bhaya</strong></p>
+        </div>
+
+        <div class="auth-wrap">
+            <article class="auth-card">
+                <h3 class="center">Login</h3>
+                <form method="post" action="/login">
+                    <label>Email <input type="email" name="email" required></label>
+                    <label>Password <input type="password" name="password" required></label>
+                    <div class="block-actions"><button type="submit">Login</button></div>
+                </form>
+            </article>
+
+            <article class="auth-card">
+                <h3 class="center">Sign up</h3>
+                <form method="post" action="/signup">
+                    <label>Name <input type="text" name="name" required></label>
+                    <label>Phone <input type="text" name="phone" required></label>
+                    <label>Email <input type="email" name="email" required></label>
+                    <label>Create password <input type="password" name="password" required></label>
+                    <label>Re-enter password <input type="password" name="confirm" required></label>
+                    <div class="block-actions"><button type="submit">Create account</button></div>
+                </form>
+            </article>
+        </div>
+        {% endif %}
+
+        {% if view == 'dashboard' %}
+        <!-- PAGE 2: Heading above, compact centered cards -->
+        <header class="stack-md center">
+            <h2>Dashboard</h2>
+            <small>Manage your clients and ledgers</small>
+        </header>
+
+        <section class="stack-sm">
+            <h4>1) Register Client</h4>
+            <form method="post" action="/clients/register">
+                <label>Name <input type="text" name="client_name" required></label>
+                <label>Mobile Number<input type="text" name="client_mobile" required></label>
+                <div class="block-actions"><button type="submit">Register</button></div>
+            </form>
+        </section>
+
+        <section class="stack-sm">
+            <h4>2) Search Client</h4>
+            <form method="get" action="/clients/search">
+                <label>By name or mobile <input type="text" name="q" placeholder="e.g. Ali / 0300..." required></label>
+                <div class="block-actions"><button type="submit">Search</button></div>
+            </form>
+        </section>
+
+        <section class="stack-sm">
+            <div class="block-actions" style="justify-content:space-between">
+                <a href="/clients" role="button" class="secondary">3) Show all clients</a>
+                <a href="/clients/pdf" role="button">4) Download list (PDF)</a>
+                <a href="/logout" role="button" class="contrast">Logout</a>
+            </div>
+        </section>
+        {% endif %}
+
+        {% if view == 'search' %}
+        <header class="stack-md center">
+            <h2>Search Results</h2>
+        </header>
+        <section class="stack-md table-card">
+            <div class="block-actions"><a href="/dashboard" role="button" class="secondary">← Back</a></div>
+            {% if results %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Mobile</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in results %}
+                    <tr>
+                        <td>{{ c.name }}</td>
+                        <td>{{ c.mobile }}</td>
+                        <td><a href="/ledger/{{ c.id }}" role="button">Open ledger</a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}<p>No clients found.</p>{% endif %}
+        </section>
+        {% endif %}
+
+        {% if view == 'list' %}
+        <header class="stack-md center">
+            <h2>All Clients</h2>
+        </header>
+        <section class="stack-md table-card">
+            {% if clients %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Name</th>
+                        <th>Mobile</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in clients %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>{{ c.name }}</td>
+                        <td>{{ c.mobile }}</td>
+                        <td><a href="/ledger/{{ c.id }}" role="button">Open ledger</a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}<p>No clients yet.</p>{% endif %}
+            <div class="block-actions" style="justify-content:flex-end">
+                <a href="/clients/pdf" role="button" class="secondary">Download PDF</a>
+                <a href="/dashboard" role="button">Back</a>
+            </div>
+        </section>
+        {% endif %}
+
+        {% if view == 'client_edit' %}
+        <header class="stack-sm center">
+            <h2>Edit Client</h2>
+        </header>
+        <section class="stack-sm">
+            <form method="post" action="/clients/{{ client.id }}/edit">
+                <label>Name <input type="text" name="client_name" value="{{ client.name }}" required></label>
+                <label>Unique Mobile <input type="text" name="client_mobile" value="{{ client.mobile }}"
+                        required></label>
+                <div class="block-actions">
+                    <button type="submit">Save</button>
+                    <a href="/clients" role="button" class="secondary">Cancel</a>
+                </div>
+            </form>
+        </section>
+        {% endif %}
+    </main>
 </body>
 
 </html>

@@ -1,234 +1,267 @@
-from flask import Flask, render_template, request, redirect, url_for, send_file
-from datetime import datetime
-import json
+from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file
+from werkzeug.security import generate_password_hash, check_password_hash
+from io import BytesIO
+import logic
 import os
-from fpdf import FPDF
-
-# ---------------- LedgerSystem Class ---------------- #
-class LedgerSystem:
-    DATA_FILE = "ledger_data.json"
-
-    def __init__(self):
-        self.clients = self.load_clients()
-
-    # ---------------- CORE ---------------- #
-    def register_client(self, name, client_id):
-        if not name or not client_id:
-            return "Name and ID required."
-        if client_id in self.clients:
-            return f"{client_id} already registered."
-        self.clients[client_id] = {"name": name, "ledger": []}
-        self.save_clients()
-        return f"Registered {name} ({client_id})"
-
-    def add_entry(self, client_id, date, detail, amount_hour, amount_deposit):
-        if client_id not in self.clients:
-            return "Client not found."
-        try:
-            amount_hour = float(amount_hour)
-        except ValueError:
-            amount_hour = 0.0
-        try:
-            amount_deposit = float(amount_deposit)
-        except ValueError:
-            amount_deposit = 0.0
-
-        pending = amount_hour - amount_deposit
-        sr = len(self.clients[client_id]["ledger"]) + 1
-        entry = {
-            "sr": sr,
-            "date": date,
-            "detail": detail,
-            "amount_hour": amount_hour,
-            "amount_deposit": amount_deposit,
-            "pending": pending
-        }
-        self.clients[client_id]["ledger"].append(entry)
-        self.save_clients()
-        return "Entry added successfully."
-
-    def get_all_clients(self):
-        return [
-            {"id": cid, "name": data["name"], "ledger": data["ledger"]}
-            for cid, data in self.clients.items()
-        ]
-
-    def get_client_ledger(self, client_id):
-        client = self.clients.get(client_id)
-        if not client:
-            return {"name": "Unknown Client", "ledger": []}
-        total_hour = total_deposit = total_pending = 0.0
-        for idx, e in enumerate(client["ledger"], start=1):
-            e["sr"] = idx
-            e["amount_hour"] = float(e.get("amount_hour", 0))
-            e["amount_deposit"] = float(e.get("amount_deposit", 0))
-            e["pending"] = e["amount_hour"] - e["amount_deposit"]
-            total_hour += e["amount_hour"]
-            total_deposit += e["amount_deposit"]
-            total_pending += e["pending"]
-        client["total_hour"] = total_hour
-        client["total_deposit"] = total_deposit
-        client["total_pending"] = total_pending
-        return client
-
-    def delete_entry(self, client_id, sr):
-        client = self.clients.get(client_id)
-        if not client:
-            return False
-        original_len = len(client["ledger"])
-        client["ledger"] = [e for e in client["ledger"] if e["sr"] != sr]
-        if len(client["ledger"]) == original_len:
-            return False
-        for idx, e in enumerate(client["ledger"], start=1):
-            e["sr"] = idx
-        self.save_clients()
-        return True
-
-    # ---------------- PDF EXPORT ---------------- #
-    def export_clients_pdf(self):
-        if not self.clients:
-            return "No clients to export."
-        filename = f"Clients_List_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_font("Arial", "B", 14)
-        pdf.cell(0, 10, "Clients List", ln=True, align="C")
-        pdf.ln(5)
-        pdf.set_font("Arial", "B", 12)
-        pdf.cell(60, 8, "Client Name", 1, 0, "C")
-        pdf.cell(60, 8, "Client ID", 1, 0, "C")
-        pdf.ln()
-        pdf.set_font("Arial", "", 12)
-        for c in self.get_all_clients():
-            pdf.cell(60, 8, c['name'], 1, 0, "C")
-            pdf.cell(60, 8, c['id'], 1, 0, "C")
-            pdf.ln()
-        pdf.output(filename)
-        return filename
-
-    def export_ledger_pdf(self, client_id):
-        client = self.get_client_ledger(client_id)
-        if not client or not client["ledger"]:
-            return "No data to export."
-        filename = f"Ledger_{client_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_font("Arial", "B", 14)
-        pdf.cell(0, 10, f"Ledger - {client['name']} ({client_id})", ln=True, align="C")
-        pdf.set_font("Arial", "B", 12)
-        pdf.ln(5)
-        headers = ["Sr", "Date", "Detail", "Amount/hr", "Deposit", "Pending"]
-        col_width = 30
-        for h in headers:
-            pdf.cell(col_width, 8, h, 1, 0, "C")
-        pdf.ln()
-        pdf.set_font("Arial", "", 12)
-        total_hour = total_deposit = total_pending = 0.0
-        for e in client["ledger"]:
-            pending = e["amount_hour"] - e["amount_deposit"]
-            total_hour += e["amount_hour"]
-            total_deposit += e["amount_deposit"]
-            total_pending += pending
-            pdf.cell(col_width, 8, str(e["sr"]), 1, 0, "C")
-            pdf.cell(col_width, 8, e["date"], 1, 0, "C")
-            pdf.cell(col_width, 8, e["detail"], 1, 0, "C")
-            pdf.cell(col_width, 8, f"{e['amount_hour']:.2f}", 1, 0, "C")
-            pdf.cell(col_width, 8, f"{e['amount_deposit']:.2f}", 1, 0, "C")
-            if pending >= 0:
-                pdf.cell(col_width, 8, f"-{pending:.2f}", 1, 0, "C")
-            else:
-                pdf.cell(col_width, 8, f"+{abs(pending):.2f}", 1, 0, "C")
-            pdf.ln()
-        pdf.set_font("Arial", "B", 12)
-        pdf.cell(col_width*3, 8, "Total", 1, 0, "C")
-        pdf.cell(col_width, 8, f"{total_hour:.2f}", 1, 0, "C")
-        pdf.cell(col_width, 8, f"{total_deposit:.2f}", 1, 0, "C")
-        if total_pending >= 0:
-            pdf.cell(col_width, 8, f"-{total_pending:.2f}", 1, 0, "C")
-        else:
-            pdf.cell(col_width, 8, f"+{abs(total_pending):.2f}", 1, 0, "C")
-        pdf.ln()
-        pdf.output(filename)
-        return filename
-
-    # ---------------- FILE HANDLING ---------------- #
-    def save_clients(self):
-        try:
-            with open(self.DATA_FILE, "w") as f:
-                json.dump(self.clients, f, indent=4)
-        except Exception as e:
-            print(f"⚠️ Error saving data: {e}")
-
-    def load_clients(self):
-        if os.path.exists(self.DATA_FILE):
-            try:
-                with open(self.DATA_FILE, "r") as f:
-                    return json.load(f)
-            except Exception as e:
-                print(f"⚠️ Error loading data: {e}")
-        return {}
-
-# ---------------- Flask App ---------------- #
+import os
+# ...
 app = Flask(__name__)
-ledger = LedgerSystem()
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "replace-this-with-a-strong-secret-key")
 
+# Initialize DB
+logic.init_db()
+
+# ---------- Auth ----------
 @app.route("/", methods=["GET"])
-def index():
-    search_query = request.args.get("search", "").strip()
-    show_clients = request.args.get("show_clients") == "1"
+def home():
+    if session.get("user_id"):
+        return redirect(url_for("dashboard"))
+    return render_template("index.html", view="auth")
 
-    clients = ledger.get_all_clients()
-    if search_query:
-        clients = [
-            c for c in clients
-            if search_query.lower() in c["name"].lower() or search_query.lower() in c["id"].lower()
-        ]
-        show_clients = True
 
-    return render_template("index.html", clients=clients, search_query=search_query, show_clients=show_clients)
-
-@app.route("/register", methods=["POST"])
-def register():
+@app.post("/signup")
+def signup():
     name = request.form.get("name", "").strip()
-    client_id = request.form.get("mobile", "").strip()
-    if client_id in ledger.clients:
-        return f"<h3 style='color:red;'>Mobile/ID '{client_id}' already exists!</h3><a href='/'>Back</a>"
-    if name and client_id:
-        ledger.register_client(name, client_id)
-    return redirect(url_for("index"))
-
-@app.route("/ledger/<path:client_id>")
-def show_ledger(client_id):
-    client = ledger.get_client_ledger(client_id)
-    return render_template("ledger.html", client=client, client_id=client_id)
-
-@app.route("/add_entry/<path:client_id>", methods=["POST"])
-def add_entry(client_id):
-    date = request.form.get("date", "")
-    detail = request.form.get("detail", "")
-    amount_hour = request.form.get("amount_hour", "0")
-    amount_deposit = request.form.get("amount_deposit", "0")
-    ledger.add_entry(client_id, date, detail, amount_hour, amount_deposit)
-    return redirect(url_for("show_ledger", client_id=client_id))
-
-@app.route("/delete_entry/<path:client_id>/<int:sr>", methods=["POST"])
-def delete_entry(client_id, sr):
+    phone = request.form.get("phone", "").strip()
+    email = request.form.get("email", "").strip().lower()
     password = request.form.get("password", "")
-    if password != "ZAB":
-        return f"<h3 style='color:red;'>Incorrect password!</h3><a href='/ledger/{client_id}'>Back</a>"
-    success = ledger.delete_entry(client_id, sr)
-    return ("OK", 200) if success else ("Entry not found", 404)
+    confirm = request.form.get("confirm", "")
 
-@app.route("/download_clients_pdf")
-def download_clients_pdf():
-    filename = ledger.export_clients_pdf()
-    return send_file(filename, as_attachment=True)
+    if not all([name, phone, email, password, confirm]):
+        flash("All fields are required.", "error")
+        return redirect(url_for("home"))
+    if password != confirm:
+        flash("Passwords do not match.", "error")
+        return redirect(url_for("home"))
 
-@app.route("/download_ledger_pdf/<path:client_id>")
-def download_ledger_pdf(client_id):
-    filename = ledger.export_ledger_pdf(client_id)
-    return send_file(filename, as_attachment=True)
+    try:
+        logic.create_user(
+            name=name,
+            phone=phone,
+            email=email,
+            password_hash=generate_password_hash(password),
+            auto_verify=True,   # no OTP
+        )
+        flash("Sign up successful! Please log in.", "success")
+        return redirect(url_for("home"))
+    except logic.UniqueConstraintError as e:
+        flash(str(e), "error")
+        return redirect(url_for("home"))
 
-# ---------------- Run Flask ---------------- #
+
+@app.post("/login")
+def login():
+    email = request.form.get("email", "").strip().lower()
+    password = request.form.get("password", "")
+    user = logic.get_user_by_email(email)
+    if not user or not check_password_hash(user.password_hash, password):
+        flash("Invalid email or password.", "error")
+        return redirect(url_for("home"))
+    session["user_id"] = user.id
+    session["user_name"] = user.name
+    flash(f"Welcome back, {user.name}!", "success")
+    return redirect(url_for("dashboard"))
+
+
+@app.get("/logout")
+def logout():
+    session.clear()
+    flash("Logged out.", "info")
+    return redirect(url_for("home"))
+
+
+# ---------- Dashboard (Page 2) ----------
+@app.get("/dashboard")
+def dashboard():
+    logic.require_auth(session)
+    return render_template("index.html", view="dashboard", user_name=session.get("user_name"))
+
+
+@app.post("/clients/register")
+def register_client():
+    logic.require_auth(session)
+    name = request.form.get("client_name", "").strip()
+    mobile = request.form.get("client_mobile", "").strip()
+    if not name or not mobile:
+        flash("Client name and unique mobile are required.", "error")
+        return redirect(url_for("dashboard"))
+    try:
+        logic.create_client(owner_id=session["user_id"], name=name, mobile=mobile)
+        flash("Client registered.", "success")
+    except logic.UniqueConstraintError:
+        flash("Mobile number is already registered", "error")
+    return redirect(url_for("dashboard"))
+
+
+@app.get("/clients/search")
+def search_clients():
+    logic.require_auth(session)
+    q = request.args.get("q", "").strip()
+    results = logic.search_clients(owner_id=session["user_id"], query=q)
+    return render_template("index.html", view="search", query=q, results=results)
+
+
+@app.get("/clients")
+def list_clients():
+    logic.require_auth(session)
+    clients = logic.get_all_clients(owner_id=session["user_id"])
+    return render_template("index.html", view="list", clients=clients)
+
+
+@app.get("/clients/pdf")
+def clients_pdf():
+    logic.require_auth(session)
+    clients = logic.get_all_clients(owner_id=session["user_id"])
+    pdf_bytes = logic.render_clients_pdf(clients)
+    return send_file(BytesIO(pdf_bytes), mimetype="application/pdf", as_attachment=True, download_name="clients.pdf")
+
+
+# ---- Client edit/delete ----
+@app.get("/clients/<int:client_id>/edit")
+def edit_client_view(client_id):
+    logic.require_auth(session)
+    client = logic.get_client(session["user_id"], client_id)
+    if not client:
+        flash("Client not found.", "error")
+        return redirect(url_for("list_clients"))
+    return render_template("index.html", view="client_edit", client=client)
+
+
+@app.post("/clients/<int:client_id>/edit")
+def edit_client(client_id):
+    logic.require_auth(session)
+    name = request.form.get("client_name", "")
+    mobile = request.form.get("client_mobile", "")
+    try:
+        logic.update_client(session["user_id"], client_id, name, mobile)
+        flash("Client updated.", "success")
+    except logic.UniqueConstraintError:
+        flash("Mobile number is already registered", "error")
+    return redirect(url_for("list_clients"))
+
+
+@app.post("/clients/<int:client_id>/delete")
+def delete_client(client_id):
+    logic.require_auth(session)
+    ok = logic.delete_client(session["user_id"], client_id)
+    flash("Client deleted." if ok else "Client not found.", "success" if ok else "error")
+    return redirect(url_for("list_clients"))
+
+
+# ---------- Ledger (Page 3) ----------
+@app.get("/ledger/<int:client_id>")
+def ledger(client_id):
+    logic.require_auth(session)
+    client = logic.get_client(session["user_id"], client_id)
+    if not client:
+        flash("Client not found.", "error")
+        return redirect(url_for("dashboard"))
+    entries = logic.get_ledger_entries(client_id)
+    totals = logic.compute_totals(entries)
+    return render_template("ledger.html", client=client, entries=entries, totals=totals)
+
+
+@app.get("/ledger/<int:client_id>/entry/<int:entry_id>/edit")
+def edit_entry_view(client_id, entry_id):
+    logic.require_auth(session)
+    client = logic.get_client(session["user_id"], client_id)
+    if not client:
+        flash("Client not found.", "error")
+        return redirect(url_for("dashboard"))
+
+    edit_entry = logic.get_ledger_entry(entry_id)
+    # Ownership & client match check
+    if not edit_entry or edit_entry.client_id != client_id or client.owner_id != session["user_id"]:
+        flash("Entry not found.", "error")
+        return redirect(url_for("ledger", client_id=client_id))
+
+    entries = logic.get_ledger_entries(client_id)
+    totals = logic.compute_totals(entries)
+    return render_template("ledger.html", client=client, entries=entries, totals=totals, edit_entry=edit_entry)
+
+
+@app.get("/ledger/<int:client_id>/pdf")
+def ledger_pdf(client_id):
+    logic.require_auth(session)
+    client = logic.get_client(session["user_id"], client_id)
+    if not client:
+        flash("Client not found.", "error")
+        return redirect(url_for("dashboard"))
+    entries = logic.get_ledger_entries(client_id)
+    totals = logic.compute_totals(entries)
+    pdf_bytes = logic.render_ledger_pdf(client, entries, totals)
+    return send_file(BytesIO(pdf_bytes), mimetype="application/pdf", as_attachment=True, download_name=f"ledger_{client.name}.pdf")
+
+
+@app.post("/ledger/<int:client_id>/add")
+def add_ledger_row(client_id):
+    logic.require_auth(session)
+    client = logic.get_client(session["user_id"], client_id)
+    if not client:
+        flash("Client not found.", "error")
+        return redirect(url_for("dashboard"))
+    details = request.form.get("details", "").strip()
+    date_str = request.form.get("date", "").strip()
+    amt_per_hour = request.form.get("amount_per_hour", "0").strip()
+    deposit = request.form.get("deposit", "0").strip()
+    try:
+        logic.add_ledger_entry(client_id, date_str, details, amt_per_hour, deposit)
+        flash("Entry added.", "success")
+    except ValueError as e:
+        flash(str(e), "error")
+    return redirect(url_for("ledger", client_id=client_id))
+
+
+@app.post("/ledger/<int:client_id>/entry/<int:entry_id>/edit")
+def edit_entry(client_id, entry_id):
+    logic.require_auth(session)
+    details = request.form.get("details", "").strip()
+    date_str = request.form.get("date", "").strip()
+    amt_per_hour = request.form.get("amount_per_hour", "0").strip()
+    deposit = request.form.get("deposit", "0").strip()
+    current_password = request.form.get("current_password", "")
+
+    user = logic.get_user_by_id(session["user_id"])
+    if not user or not current_password or not check_password_hash(user.password_hash, current_password):
+        flash("Incorrect account password.", "error")
+        return redirect(url_for("ledger", client_id=client_id))
+
+    # Ownership & client match check BEFORE update
+    entry = logic.get_ledger_entry(entry_id)
+    client = logic.get_client(session["user_id"], client_id)
+    if not entry or not client or entry.client_id != client_id or client.owner_id != session["user_id"]:
+        flash("Entry not found.", "error")
+        return redirect(url_for("ledger", client_id=client_id))
+
+    try:
+        logic.update_ledger_entry(entry_id, date_str, details, amt_per_hour, deposit)
+        flash("Entry updated.", "success")
+    except ValueError as e:
+        flash(str(e), "error")
+    return redirect(url_for("ledger", client_id=client_id))
+
+
+@app.post("/ledger/<int:client_id>/entry/<int:entry_id>/delete")
+def delete_entry(client_id, entry_id):
+    logic.require_auth(session)
+    current_password = request.form.get("current_password", "")
+
+    user = logic.get_user_by_id(session["user_id"])
+    if not user or not current_password or not check_password_hash(user.password_hash, current_password):
+        flash("Incorrect account password.", "error")
+        return redirect(url_for("ledger", client_id=client_id))
+
+    # Ownership & client match check BEFORE delete
+    entry = logic.get_ledger_entry(entry_id)
+    client = logic.get_client(session["user_id"], client_id)
+    if not entry or not client or entry.client_id != client_id or client.owner_id != session["user_id"]:
+        flash("Entry not found.", "error")
+        return redirect(url_for("ledger", client_id=client_id))
+
+    ok = logic.delete_ledger_entry(entry_id)
+    flash("Entry deleted." if ok else "Entry not found.", "success" if ok else "error")
+    return redirect(url_for("ledger", client_id=client_id))
+
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)
