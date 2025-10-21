@@ -8,3 +8,10 @@ Jinja2==3.1.6
 MarkupSafe==3.0.3
 packaging==25.0
 Werkzeug==3.1.3
+
+# --- MISSING packages you need ---
+SQLAlchemy==2.0.36
+reportlab==4.2.5
+
+# If you will use Render PostgreSQL later:
+# psycopg2-binary==2.9.9
